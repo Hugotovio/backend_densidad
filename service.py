@@ -1,76 +1,65 @@
 from sqlalchemy import text
-
-def interpolar(x, x0, x1, y0, y1):
-    return y0 + (y1 - y0) * ((x - x0) / (x1 - x0))
+import math
 
 
+# 🔹 truncar a 1 decimal (SIN redondear)
+def truncar_1_decimal(valor):
+    return math.floor(valor * 10) / 10
+
+
+# 🔹 obtener densidad (tabla 2)
 def obtener_densidad(db, api):
-    menor = db.execute(text("""
-        SELECT api_observado, densidad_kg_gal
+    row = db.execute(text("""
+        SELECT densidad_kg_gal
         FROM densidad_api
-        WHERE api_observado <= :api
-        ORDER BY api_observado DESC
-        LIMIT 1
+        WHERE api_observado = :api
     """), {"api": api}).fetchone()
 
-    mayor = db.execute(text("""
-        SELECT api_observado, densidad_kg_gal
-        FROM densidad_api
-        WHERE api_observado >= :api
-        ORDER BY api_observado ASC
-        LIMIT 1
-    """), {"api": api}).fetchone()
-
-    if not menor or not mayor:
+    if not row:
         return None
 
-    # Si coincide exacto
-    if menor[0] == mayor[0]:
-        return menor[1]
-
-    # Interpolación
-    return interpolar(api, menor[0], mayor[0], menor[1], mayor[1])
+    return row[0]
 
 
+# 🔹 obtener factor (tabla 1)
 def obtener_factor(db, temp):
-    menor = db.execute(text("""
-        SELECT temperatura_f, factor
+    row = db.execute(text("""
+        SELECT factor
         FROM factor_conversion
-        WHERE temperatura_f <= :temp
-        ORDER BY temperatura_f DESC
-        LIMIT 1
+        WHERE temperatura_f = :temp
     """), {"temp": temp}).fetchone()
 
-    mayor = db.execute(text("""
-        SELECT temperatura_f, factor
-        FROM factor_conversion
-        WHERE temperatura_f >= :temp
-        ORDER BY temperatura_f ASC
-        LIMIT 1
-    """), {"temp": temp}).fetchone()
-
-    if not menor or not mayor:
+    if not row:
         return None
 
-    # Si coincide exacto
-    if menor[0] == mayor[0]:
-        return menor[1]
-
-    # Interpolación
-    return interpolar(temp, menor[0], mayor[0], menor[1], mayor[1])
+    return float(row[0])  # 🔥 CORRECCIÓN
 
 
+# 🔥 FUNCIÓN FINAL (100% SEGÚN TU PDF)
 def calcular_densidad(db, api, temperatura):
-    densidad = obtener_densidad(db, api)
+    # 1. obtener factor
     factor = obtener_factor(db, temperatura)
 
-    if densidad is None or factor is None:
+    if factor is None:
+        return None
+
+    # 2. sumar API + factor
+    api_corregido = api + factor
+
+    # 3. truncar (NO redondear)
+    api_tabla = truncar_1_decimal(api_corregido)
+
+    # 4. buscar densidad exacta
+    densidad = obtener_densidad(db, api_tabla)
+
+    if densidad is None:
         return None
 
     return {
-        "api": api,
+        "api_original": api,
         "temperatura": temperatura,
-        "densidad_base": densidad,
         "factor": factor,
-        "densidad_corregida": densidad * factor
+        "api_corregido": round(api_corregido, 3),
+        "api_tabla": api_tabla,
+        "densidad_base": densidad
     }
