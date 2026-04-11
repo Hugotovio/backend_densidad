@@ -18,7 +18,7 @@ def obtener_densidad(db, api):
     if not row:
         return None
 
-    return row[0]
+    return float(row[0])  # 🔥 CLAVE
 
 
 # 🔹 obtener factor (tabla 1)
@@ -56,10 +56,17 @@ def calcular_densidad(db, api, temperatura):
         return None
 
     return {
-        "api_original": api,
-        "temperatura": temperatura,
-        "factor": factor,
-        "api_corregido": round(api_corregido, 3),
-        "api_tabla": api_tabla,
-        "densidad_base": densidad
+    "api_original": api,
+    "temperatura": temperatura,
+    "factor": factor,
+    "api_corregido": round(api_corregido, 3),
+    "api_tabla": api_tabla,
+
+    # 🔥 DENSIDAD EN VARIAS UNIDADES
+    "densidad": {
+        "kg_gal": round(densidad, 3),
+        "kg_m3": round(densidad * 264.172, 2),
+        "g_cm3": round(densidad * 0.264172, 4),
+        "lb_gal": round(densidad * 2.20462, 3)
     }
+}
